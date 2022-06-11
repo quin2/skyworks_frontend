@@ -1,0 +1,2 @@
+selected style
+switch some icons to real buttons

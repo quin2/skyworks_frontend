@@ -1,0 +1,1 @@
+../../../../fast_paint/script.js
