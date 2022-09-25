@@ -31,7 +31,6 @@
 
  <div class="lowerContain">
 	 	{#each [...layerList].reverse() as layer}
-      {#if layer != 0}
     		<div class="block-row {layer.pos == selectedLayer ? 'selected' : ''}">
     		  <BlockToggle 
             offIcon={faEyeSlash} 
@@ -43,7 +42,6 @@
     		    layer {layer.pos}
     		  </div>
     		</div>
-    {/if}
 	{/each}
   <div class="block-row">
 	 <BlockButton icon={faPlus} clickAction={addLayer}/>
@@ -94,6 +92,8 @@
 
     outline: 1px solid black;
     margin: 2px;
+
+    cursor: pointer;
   }
 
   .block-border {

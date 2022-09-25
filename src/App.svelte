@@ -25,13 +25,13 @@
 
   let mode = FastPaintCore.brushModeDraw;
   let shape = FastPaintCore.brushToolCircle;
-  let size = 20;
+  let size = 10;
   let color = [0, 0, 0];
-  let alpha = 255;
+  let alpha = 100;
 
   let layerList = [];
 
-  let selectedLayer = 1;
+  let selectedLayer = 0;
   
   modelOpen.subscribe(value => {
     open = value;
@@ -52,22 +52,7 @@
   }
 
   function saveData(){
-    let storedLayers = [];
-
-    const allLayers = core.getLayers();
-
-    for(let i = 0; i < allLayers.length; i++){
-      const layer = allLayers[i];
-
-      const layerData = core.exportLayer(layer.pos);
-
-      storedLayers.push({
-        'pos': layer.pos, 
-        'data': new Uint8Array(layerData), 
-        'status': layer.status, 
-        'selected': layer.pos == selectedLayer
-      });
-    }
+    const storedLayers = core.dumpAllLayers()
 
     const content = core.exportDataURL();
 
@@ -90,44 +75,32 @@
   }
 
   function loadData(file){
-    //issue might be with selecting the wrong layer. root of problem is showing here anyway
-    for(let i = 0; i < file.layers.length; i++){
-      const layer = file.layers[i]; 
-      
-      console.log(layer.data)
-      core.importLayer(layer.pos, layer.status, layer.data);
-
-      if(layer.selected){
-        selectedLayer = layer.pos;
-      }
-    }
-
-    layerList = file.layers;
+    core.importAllLayers(file.layers)
+    layerList = core.getLayers();
 
     //this line is causing trouble
-    core.selectLayer(selectedLayer);
+    //core.selectLayer(selectedLayer);
 
-    /*
-      root problem might be that we are blending incorrectly 
-    */
-
-    core.updateCanvas(false);
+    //need to select default layer correctly
+    resetTools()
   }
 
-  let drawConfigObject = {
-    color: [...color, alpha],
-    size: size,
-    mode: mode,
-    shape: shape
+  /*
+  todo: in future make this get settings from Core and adjust tools.
+  */
+  function resetTools(){
+    size = 10;
+    color = [0, 0, 0];
+    alpha = 100;
+    selectedLayer = 0;
+
+    document.getElementById('colorInput').value = "#000000"
   }
 
   onMount(async () => {
     core = new FastPaintCore(document.getElementById('left-pane'));
-    await core.init(drawConfigObject);
 
     layerList = core.getLayers();
-
-    console.log(layerList);
   })
 
   function changeToolSize(localSize){
@@ -184,18 +157,11 @@
   }
 
   function makeNewCanvas(width, height){
-    let drawConfigObject = {
-      color: [...color, alpha],
-      size: size,
-      mode: mode,
-      shape: shape
-    }
+    //new new
+    //clear DOM
+    core.clearDOM()
+    core = new FastPaintCore(document.getElementById('left-pane'));
 
-    core.freeState(width, height, drawConfigObject);
-
-    canvasName = "untitled";
-
-    selectedLayer = 1;
     layerList = core.getLayers();
 
     undoDisabled = true;
@@ -214,7 +180,9 @@
     canvasName = file.name;
   }
 
-  function undoAction(){
+  async function undoAction(){
+    await core.undoAction();
+
     if(core.redoActionQueue.length > 0){
       redoDisabled = false;
     }
@@ -222,11 +190,30 @@
       redoDisabled = true;
     }
 
-    core.undoAction();
+    if(core.actionQueue.length > 0){
+      undoDisabled = false;
+    }
+    else {
+      undoDisabled = true;
+    }
   }
 
   function redoAction(){
     core.redoAction();
+
+    if(core.redoActionQueue.length > 0){
+      redoDisabled = false;
+    }
+    else {
+      redoDisabled = true;
+    }
+
+    if(core.actionQueue.length > 0){
+      undoDisabled = false;
+    }
+    else {
+      undoDisabled = true;
+    }
   }
 
   function zoomInAction(){
@@ -293,10 +280,6 @@
         {
           icon: faPen,
           key: FastPaintCore.brushModeDraw
-        },
-        {
-          icon: faArrowsUpDownLeftRight,
-          key: FastPaintCore.brushModeMove
         }
       ]} onChange={changeToolType} choice={mode}/>
     </div>
@@ -316,7 +299,7 @@
     </div>
 
     <div class="block-group">
-      <BlockSlider min={0} max={100} value={size} onChange={changeToolSize}/>
+      <BlockSlider min={0} max={50} value={size} onChange={changeToolSize}/>
       
       <div class="block block-1">
         <input type="color" id="colorInput" class="block-color" on:change={changeToolColor}>
@@ -328,7 +311,7 @@
           <Fa icon={faFlag} size="lg"/>
       </div>
 
-      <BlockSlider min={0} max={255} value={alpha} onChange={changeToolAlpha}/>
+      <BlockSlider min={0} max={100} value={alpha} onChange={changeToolAlpha}/>
     </div>
 
     <div class="block-group">
