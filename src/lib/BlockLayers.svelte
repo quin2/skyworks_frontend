@@ -23,13 +23,13 @@
   }
 </script>
 
-<div class="block-border block-row block-margin block-top">
+<div class="block-border block-row block-margin">
       <div class="block-1 block">
         <Fa icon={faLayerGroup} size="lg"/>
       </div>
 </div>
 
- <div class="lowerContain">
+ <div class="lowerContain block-border block-margin">
 	 	{#each [...layerList].reverse() as layer}
       {#if layer != 0}
     		<div class="block-row {layer.pos == selectedLayer ? 'selected' : ''}">
@@ -94,6 +94,8 @@
 
     outline: 1px solid black;
     margin: 2px;
+
+    cursor:  pointer;
   }
 
   .block-border {

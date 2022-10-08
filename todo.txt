@@ -1,2 +1,14 @@
 selected style
 switch some icons to real buttons
+
+
+known bugs:
+flippping between layers destroys alpha blend
+alpha blend between light/dark partially transparent brushes can get destoryed
+
+enhancements:
+bug reporting
+redo brush engine with more JS
+mobile layout
+ability to reorder/delete layers
+enhanced color picker

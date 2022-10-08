@@ -122,12 +122,10 @@
   }
 
   onMount(async () => {
-    core = new FastPaintCore(document.getElementById('left-pane'));
+    core = new FastPaintCore(document.getElementById('left-pane'), "guide1");
     await core.init(drawConfigObject);
 
     layerList = core.getLayers();
-
-    console.log(layerList);
   })
 
   function changeToolSize(localSize){
@@ -339,13 +337,17 @@
       <BlockButton icon={faMagnifyingGlassMinus} clickAction={zoomOutAction}/>
     </div>
 
-      <BlockLayers
-        addLayerAction={addLayer}
-        selectLayerAction={selectLayer}
-        hideLayerAction={hideLayer}
-        layerList={layerList}
-        bind:selectedLayer={selectedLayer}
-      />
+    <BlockLayers
+      addLayerAction={addLayer}
+      selectLayerAction={selectLayer}
+      hideLayerAction={hideLayer}
+      layerList={layerList}
+      bind:selectedLayer={selectedLayer}
+    />
+
+    <div class="block-group">
+      <canvas id="guide1" class="block-guide"></canvas>
+    </div>
 
   </div>
 </main>
@@ -377,8 +379,9 @@
     align-content: flex-start;
     padding: 2px;
 
-    outline: 10px solid black;
     overflow: hidden;
+
+    border-left: 1px solid black;
   }
 
   #right-pane > * {
@@ -452,6 +455,13 @@
     width: 80%;
   }
 
+  .block-guide {
+    margin:  2px;
+    outline:  1px solid black;
+
+    width:  196px;
+  }
+
   .block-text:focus {
     border: 2px solid black;
     outline: none;
@@ -487,12 +497,13 @@
     main {
       flex-direction: column;
       display: inline-block;
+      width:  100%;
     }
 
     #right-pane {
       width:  100%;
       height:  100vh;
-
+      overflow: scroll;
     }
 
     #left-pane {
