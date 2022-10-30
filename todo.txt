@@ -5,6 +5,8 @@ switch some icons to real buttons
 known bugs:
 flippping between layers destroys alpha blend
 alpha blend between light/dark partially transparent brushes can get destoryed
+cursor won't travel with zoom
+redo doesn't work
 
 enhancements:
 bug reporting

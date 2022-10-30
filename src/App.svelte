@@ -125,7 +125,7 @@
     core = new FastPaintCore(document.getElementById('left-pane'), "guide1");
     await core.init(drawConfigObject);
 
-    layerList = core.getLayers();
+    //layerList = core.getLayers();
   })
 
   function changeToolSize(localSize){

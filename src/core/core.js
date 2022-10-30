@@ -189,7 +189,7 @@ export class FastPaintCore {
         //init system
         const b2p = function bytesToPages(bytes) { return Math.ceil(bytes / 64_000); }
         const memory = new WebAssembly.Memory({ initial: 2000 });
-        let resp = await fetch("buffer.wasm");
+        let resp = await fetch("nl.wasm");
         let bytes = await resp.arrayBuffer();
 
         const lI = await WebAssembly.instantiate(bytes, {
@@ -394,6 +394,7 @@ export class FastPaintCore {
 
             //grab layer snapshot for undo buffer, if we need one
             this.redoActionQueue = [];
+            /*
             const currentLayer = this.instance.exports.getCurrentLayer();
             if ((this.snapshotStrokeCount[currentLayer] % this.undoStride) == 0) {
                 this.snapshotQueue[currentLayer].push({
@@ -402,6 +403,7 @@ export class FastPaintCore {
                 });
 
             }
+            */
 
             this.instance.exports.startPath(x, y);
             this.updateCanvas(false);
@@ -424,6 +426,7 @@ export class FastPaintCore {
             this.updateCanvas(true); //spot fix for now. Need to blend better around cursor
             this.edited = true;
 
+            /*
             if (this.currentActionPath.length > 0) {
                 const actionHistoryItem = {
                     'path': this.currentActionPath,
@@ -437,6 +440,7 @@ export class FastPaintCore {
                     this.actionQueue.push(actionHistoryItem);
                 }
             }
+            */
 
             this.currentActionPath = [];
         } else {

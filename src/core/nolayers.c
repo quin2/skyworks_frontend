@@ -123,7 +123,7 @@ void allocateSaved(int* data){
 
 
 void setBrushPixel(int *brush, int width, int x, int y, int value){
-	if(value < 0 || value > 255){
+	if(value <= 0 || value > 255){
 		return;
 	}
 	brush[x + (y * width)] = (uint8_t) value;
@@ -152,8 +152,9 @@ void setPixel4(int *brush, int *brushGuide, int width, int cx, int cy, int dx, i
 	}
 	
 	//draw anti-aa outline	
+	//problem is exactly here
 	setBrushPixel(brush, width, cx + dx, cy + dy, alpha);
-	setBrushPixel(brush, width, cx - dx, cy + dy, alpha);
+	setBrushPixel(brush, width, cx - dx, cy + dy, alpha); //"alpha" goes at the end
 	setBrushPixel(brush, width, cx + dx, cy - dy, alpha);
 	setBrushPixel(brush, width, cx - dx, cy - dy, alpha);
 
@@ -185,7 +186,8 @@ void computeAACircleMask(int width, double alpha, int *brush, int *brushGuide){
 	    int alpha = transparency;
 	    int alpha2 = maxTransparency - transparency;
 
-	    setPixel4(brush, brushGuide, width, r, r, (int)_x, (int)floorf(_y), alpha, maxTransparency, drawLinesDirection); //aloha
+	    //alpha is alpha and flood is maxTransparency here
+	    setPixel4(brush, brushGuide, width, r, r, (int)_x, (int)floorf(_y), alpha, roundf(maxTransparency), drawLinesDirection); //aloha
 	}
 
 	quarter = roundf(radiusY2 / sqrtf(radiusX2 + radiusY2));
@@ -199,7 +201,7 @@ void computeAACircleMask(int width, double alpha, int *brush, int *brushGuide){
 
 	    drawLinesDirection = 0;
 
-	    setPixel4(brush, brushGuide, width, r, r, (int) floorf(_x), (int)_y, alpha, maxTransparency, drawLinesDirection); //alph
+	    setPixel4(brush, brushGuide, width, r, r, (int) floorf(_x), (int)_y, alpha, roundf(maxTransparency), drawLinesDirection); //alph
 	}
 }
 
@@ -290,7 +292,7 @@ void blendLayersBounded(int startX, int startY, int endX, int endY){
 				continue;
 			}
 
-			screen[idx] = layer[idx]
+			screen[idx] = layer[idx];
 		}	
 	}
 	
@@ -365,7 +367,7 @@ void drawBuffer(){
 	drawBufferBounded(0, 0, WIDTH, HEIGHT);
 }
 
-void setColor(int layer, int color){
+void setLayerColor(int color){
 	for(int i = 0; i < WIDTH; i++){
 		for(int j = 0; j < HEIGHT; j++){
 			int off = (j * WIDTH + i);
@@ -390,7 +392,7 @@ void clearScreen(){
 	}
 }
 
-void clearLayer(int layer){
+void clearLayer(){
 	for(int i = 0; i < WIDTH; i++){
 		for(int j = 0; j < HEIGHT; j++){
 			int off = (j * WIDTH + i);
@@ -540,6 +542,7 @@ void setBrushProperties(int rin, int mode, int alpha, int setEraseMode){
 
 	if(mode == 0){
 		computeAACircleMask(R*2, a, brush, brushGuide);
+		//computeAACircleMask(R*2, 1.0, brush, brushGuide);
 	}
 
 	if(mode == 1){
@@ -606,14 +609,16 @@ void initSystem(){
 	alphaMask = (int*)malloc(nb * sizeof(int));
 	overlay = (int*)malloc(nb * sizeof(int));
 	trackLayer = (int*)malloc(nb * sizeof(int));
+	layer = (int*)malloc(nb * sizeof(int));
 	
 
 	computeAACircleMask(R*2, 1.0, brush, brushGuide);
 
 	clearScreen();
+	clearLayer();
 
 	//clear current layer
-	setLayerColor(0, 0xffffffff);
+	setLayerColor(0x00000000);
 
 	//set consts
 	oldP.u = -1;
@@ -631,6 +636,6 @@ void dealloc(){
 	free(alphaMask);
 	free(overlay);
 
-	free(layer)
+	free(layer);
 	
 }
