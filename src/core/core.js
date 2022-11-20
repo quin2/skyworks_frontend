@@ -39,14 +39,57 @@ export class FastPaintCore {
 		background-color: gray;
     	overflow: auto;
 	`;
+
+    static canvasParentStyle = `
+		position: absolute;
+		width: 400px;
+		height: 400px;
+
+	`
     //element bindings--------------------------------------------
 
     //canvas binds
 
     constructor(shim, guide) {
+        this.undoStride = 10; //number of times we will record stroke before grabbing a snapshot
+        this.maxUndoHistory = 50;
+
+        //create draw area
+        this.windowShim = shim;
+        shim.setAttribute('style', FastPaintCore.windowShimStyle2);
+
+        this.drawArea = document.createElement('div');
+        this.drawArea.setAttribute('style', FastPaintCore.windowShimStyle);
+
+        //can undo later.... just append diretly to drawArea
+        this.canvasParent = document.createElement('div');
+        this.canvasParent.setAttribute('style', FastPaintCore.canvasParentStyle);
+        this.drawArea.appendChild(this.canvasParent);
+        shim.appendChild(this.drawArea);
+
+        //shortcur
+        document.addEventListener('keydown', this.handleShortcut.bind(this));
+
+        //resiz
+        window.addEventListener('resize', this.handleResize.bind(this));
+
+        //guide specifc code lives here
+        this.guide = document.getElementById(guide)
+        this.guideCtx = this.guide.getContext('2d')
+
+        //attach listeners to guide
+        /*
+        this.guide.addEventListener('mousedown', this.guideMouseDown.bind(this))
+        this.guide.addEventListener('mousemove', this.guideMouseMode.bind(this))
+        this.guide.addEventListener('mouseup', this.guideMouseUp.bind(this))
+        this.guide.addEventListener('mouseleave', this.guideMouseLeave.bind(this))
+        */
+    }
+
+    setupArea(width, height) {
         //initalize globals
-        this.width = 400;
-        this.height = 400;
+        this.width = width;
+        this.height = height;
 
         this.byteSize = this.height * this.width * 4;
 
@@ -58,55 +101,30 @@ export class FastPaintCore {
 
         this.scaleConstant = 1.0;
 
-        this.sizeConstant = 100
-
         this.lastPosX = -1;
         this.lastPosY = -1;
 
         this.moveMode = false;
 
-        //undo/redo subsystem
+        this.edited = false;
+
+        //global undo/redo subsystem. All layer-related metadata is stored on the layer object
         this.currentActionPath = [];
         this.actionQueue = [];
         this.redoActionQueue = [];
 
-        //sloppy asf but what can you do
-        //need to keep track of strokes/layer somehow
-        this.snapshotQueue = [
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            []
-        ];
-        this.snapshotStrokeCount = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        //layer status
+        this.currentLayer = 0;
+        this.layers = []
 
-        this.undoStride = 10; //number of times we will record stroke before grabbing a snapshot
-        this.maxUndoHistory = 50;
-
-        //track save status
-        this.edited = false;
-
-        //create draw area
-        this.windowShim = shim;
-        shim.setAttribute('style', FastPaintCore.windowShimStyle2);
-
-        this.drawArea = document.createElement('div');
-        this.drawArea.setAttribute('style', FastPaintCore.windowShimStyle);
-
-
-        //create canvas
         this.canvas = document.createElement('canvas');
         this.canvas.setAttribute('style', FastPaintCore.canvasStyle);
         this.canvas.width = this.width;
         this.canvas.height = this.height;
-        this.drawArea.appendChild(this.canvas);
-        shim.appendChild(this.drawArea);
+        this.canvas.style.zIndex = 100;
+
+        //can undo later.... just append diretly to drawArea
+        this.canvasParent.appendChild(this.canvas);
 
         //bind canvas
         this.rect = this.canvas.getBoundingClientRect();
@@ -122,59 +140,61 @@ export class FastPaintCore {
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('touchstart', this.handleMouseDown.bind(this));
 
-
         this.canvas.addEventListener('mouseleave', this.handlePathEnd.bind(this));
 
         this.canvas.addEventListener('wheel', this.handleMouseZoom.bind(this));
 
-        //shortcur
-        document.addEventListener('keydown', this.handleShortcut.bind(this));
+        //now, center canvas
+        this.updateCanvasPosition()
+        this.updateBoundingRect()
 
-        //resiz
-        window.addEventListener('resize', this.updateBoundingRect.bind(this));
-
-        //guide specifc code lives here
-        this.guide = document.getElementById(guide)
-        this.guideCtx = this.guide.getContext('2d')
         let guideWidth = ((this.width / this.height) * this.guide.offsetWidth)
         this.guide.style.height = guideWidth + "px"
         this.guide.width = this.width
         this.guide.height = this.height
 
-        //attach listeners to guide
-        /*
-        this.guide.addEventListener('mousedown', this.guideMouseDown.bind(this))
-        this.guide.addEventListener('mousemove', this.guideMouseMode.bind(this))
-        this.guide.addEventListener('mouseup', this.guideMouseUp.bind(this))
-        this.guide.addEventListener('mouseleave', this.guideMouseLeave.bind(this))
-        */
-
-        //now, center canvas
-        this.setPosition(this.canvas, (this.windowShim.offsetWidth / 2) - (this.canvas.offsetWidth / 2), (this.windowShim.offsetHeight / 2) - (this.canvas.offsetHeight / 2))
-        this.updateBoundingRect()
-
         this.guideBounds = []
-
     }
 
-    guideMouseDown(event){
-    	this.guideClicked = true;
-    	this.posX = event.offsetX;
+    async setupDraw(width, height, drawConfigObject){
+    	this.setupArea(width, height)
+    	this.addLayerCore()
+    	await this.init(drawConfigObject)
+    }
+
+    newCanvas(width, height, drawConfigObject){
+    	this.freeState(width, height, drawConfigObject)
+    	this.addLayer()
+    	this.fillLayer(255, 255, 255, 255);
+    }
+
+    handleResize() {
+        this.updateCanvasPosition()
+        this.updateBoundingRect()
+    }
+
+    updateCanvasPosition() {
+        this.setPosition(this.canvasParent, (this.windowShim.offsetWidth / 2) - (this.canvas.offsetWidth / 2), (this.windowShim.offsetHeight / 2) - (this.canvas.offsetHeight / 2))
+    }
+
+    guideMouseDown(event) {
+        this.guideClicked = true;
+        this.posX = event.offsetX;
         this.posY = event.offsetY;
     }
 
-    guideMouseUp(event){
-    	this.guideClicked = false;
+    guideMouseUp(event) {
+        this.guideClicked = false;
     }
 
-    guideMouseMode(event){
-    	 if (this.guideClicked) {
-                this.canvasMoveDriver(event, this.guide, true)
-            }
+    guideMouseMode(event) {
+        if (this.guideClicked) {
+            this.canvasMoveDriver(event, this.guide, true)
+        }
     }
 
-    guideMouseLeave(event){
-    	this.guideClicked = false
+    guideMouseLeave(event) {
+        this.guideClicked = false
     }
 
     setPosition(element, x, y) {
@@ -201,10 +221,16 @@ export class FastPaintCore {
         //allocate canvas and init
         this.pointer = this.instance.exports.allocate(this.width, this.height);
         this.instance.exports.initSystem();
+        this.overlayPointer = this.instance.exports.getOverlayRef()
 
         this.configTools(configObject)
+        this.fillLayer(255, 255, 255, 255);
 
         this.updateCanvas(false);
+    }
+
+    fillLayer(red, green, blue, alpha) {
+        this.instance.exports.fillLayer(red, green, blue, alpha);
     }
 
     configTools(configObject) {
@@ -268,51 +294,171 @@ export class FastPaintCore {
     }
 
     addLayer() {
-        this.instance.exports.addLayer();
-        this.updateCanvas(false);
+        this.addLayerCore()
+
+        const actionHistoryItem = {
+        	'type': "addLayer",
+        }
+        this.actionQueue.push(actionHistoryItem)
+    }
+
+    addLayerCore(){
+    	let canvas = this.addDOMLayer(this.width, this.height)
+
+        const newLayerName = `layer ${this.layers.length}`
+        this.addToLayersObject(true, "", newLayerName, canvas, canvas.getContext('2d'))
+    }
+
+    undoAddLayer(){
+    	const action = this.actionQueue.pop()
+
+    	this.deleteLayerCore(this.layers.length - 1)
+
+    	this.redoActionQueue.push(action);
+    }
+
+    redoAddLayer(){
+    	const action = this.redoActionQueue.pop()
+
+    	this.addLayerCore()
+
+    	this.actionQueue.push(action);
+    }
+
+    addDOMLayer(width, height, pos) {
+        let canvas = document.createElement('canvas');
+        canvas.setAttribute('style', FastPaintCore.canvasStyle);
+        canvas.width = width;
+        canvas.height = height;
+
+        if(pos !== undefined && pos < this.layers.length){
+        	//this.canvasParent.insertBefore(canvas, this.layers[pos].domRef)
+        }
+        else {
+        	this.canvasParent.appendChild(canvas);
+        }
+
+        return canvas
+    }
+
+    addToLayersObject(shown, data, name, domRef, drawCtx, pos) {
+    	let newLayer = {
+            shown: true,
+            data: data,
+            name: name,
+            domRef: domRef,
+            drawCtx: drawCtx,
+            history: [],
+            snapshots: [],
+            strokes: 0
+        }
+
+        if(pos !== undefined){
+        	this.layers.splice(pos, 0, newLayer)
+        }
+        else {
+        	this.layers.push(newLayer)
+        }
+        
     }
 
     getLayers() {
-        const layerArrayAddress = this.instance.exports.layerArrayAddress();
-        const layerStatus = new Uint8Array(this.memory.buffer, layerArrayAddress, 10);
+        return this.layers
+    }
 
-        let layerStatusOut = [];
-        for (let i = 1; i < layerStatus.length; i++) {
-            if (layerStatus[i] != 0) {
-                layerStatusOut.push({ 'pos': i, 'status': layerStatus[i] })
-            }
-        }
-
-        return layerStatusOut;
+    getLayer(layer) {
+        return this.layers[layer].data
     }
 
     hideLayer(layer) {
-        this.instance.exports.toggleLayerVisibility(layer);
-        this.updateCanvas(false);
+        this.layers[layer].shown = !this.layers[layer].shown
+
+        console.log(layer)
+
+        if (this.layers[layer].shown) {
+            this.layers[layer].domRef.style.visibility = "visible"
+        } else {
+            this.layers[layer].domRef.style.visibility = "hidden"
+        }
+
     }
+
+    /*
+	doesn't seem to stop "leak" until the first stroke is done...
+    */
 
     selectLayer(layer) {
-        this.instance.exports.selectActiveLayer(layer);
-        this.updateCanvas(true);
+        /*
+
+		we need to do two new things here: reset the current layer, and load the old one
+        */
+
+        //won't work off the bat
+        this.saveCurrentLayer()
+
+        this.instance.exports.clearLayer();
+
+        this.currentLayer = layer
+
+        const newData = this.layers[layer].data
+        if (newData != "") {
+            this.importLayerFlat(newData)
+            this.instance.exports.endPath() //bit of a misnomer. Will copy buffer into blend array
+            this.updateCanvas(false)
+        }
+
+
     }
 
-    exportLayer(layer) {
-        const layerAddress = this.instance.exports.getLayer(layer);
-        const layerData = new Uint8Array(this.memory.buffer, layerAddress, this.byteSize);
+    saveCurrentLayer() {
+        //const usub = new Uint8ClampedArray(this.memory.buffer, this.pointer, this.byteSize);
+        const copyDest = this.instance.exports.getLayerRef()
+        const oldData = new Uint8ClampedArray(this.memory.buffer, copyDest, this.byteSize);
+        this.layers[this.currentLayer].data = new Uint8Array(oldData)
+    }
+
+    exportLayer() {
+        const layerAddress = this.instance.exports.getLayerRef()
+        const layerData = new Uint8ClampedArray(this.memory.buffer, layerAddress, this.byteSize);
 
         return layerData;
     }
 
     importLayer(layer, status, data) {
-        const layerAddress = this.instance.exports.getLayer(layer);
-        const localData = new Uint8Array(this.memory.buffer, layerAddress, this.byteSize);
+        const layerAddress = this.getLayer(layer);
+        const localData = new Uint8ClampedArray(this.memory.buffer, layerAddress, this.byteSize);
         localData.set(data);
 
-        this.instance.exports.allocateSavedLayer(localData.byteOffset, layer, status); //data, layer, status
+        this.instance.exports.allocateSaved(localData.byteOffset); //data, layer, status
+    }
+
+    importLayerFlat(data) {
+        const copyDest = this.instance.exports.getLayerRef()
+        const localData = new Uint8ClampedArray(this.memory.buffer, copyDest, this.byteSize);
+        localData.set(data);
+
+        //this.instance.exports.allocateSaved(localData.byteOffset); //data, layer, status
     }
 
     exportDataURL() {
-        const dataURL = this.canvas.toDataURL("image/png");
+        //will need to do things a little different
+        //create virtual canvas
+        let target = document.createElement('canvas')
+        target.width = this.width;
+        target.height = this.height;
+        let tCtx = target.getContext('2d')
+
+        //merge from bottom to top
+        for (let i = 0; i < this.layers.length; i++) {
+            let layer = this.layers[i]
+
+            if (layer.shown) {
+                tCtx.drawImage(layer.domRef, 0, 0)
+            }
+        }
+
+        //export url as canvas
+        const dataURL = target.toDataURL("image/png");
         return dataURL;
     }
 
@@ -325,46 +471,18 @@ export class FastPaintCore {
     }
 
     freeState(width, height, configObject) {
-        //allow dynamic height
-        this.edited = false;
+        this.canvasParent.innerHTML = ""
 
-        this.width = width;
-        this.height = height;
-
-        this.byteSize = this.height * this.width * 4;
-
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
-
-        this.updateBoundingRect();
+        this.setupArea(width, height)
 
         //free old memory
         this.instance.exports.dealloc();
 
         this.pointer = this.instance.exports.allocate(this.width, this.height); //should normally be width, height but...
         this.instance.exports.initSystem();
+        this.overlayPointer = this.instance.exports.getOverlayRef()
 
         this.configTools(configObject);
-
-        this.updateCanvas(false);
-
-        //clear history objects
-        this.snapshotQueue = [
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            []
-        ];
-        this.currentActionPath = [];
-        this.actionQueue = [];
-        this.redoActionQueue = [];
-        this.snapshotStrokeCount = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     }
 
     //event handlers below this line
@@ -394,22 +512,21 @@ export class FastPaintCore {
 
             //grab layer snapshot for undo buffer, if we need one
             this.redoActionQueue = [];
-            /*
-            const currentLayer = this.instance.exports.getCurrentLayer();
-            if ((this.snapshotStrokeCount[currentLayer] % this.undoStride) == 0) {
-                this.snapshotQueue[currentLayer].push({
-                    'data': new Uint8Array(this.exportLayer(currentLayer)),
+
+            if ((this.layers[this.currentLayer].strokes % this.undoStride) == 0) {
+                console.log("exporting")
+                this.layers[this.currentLayer].snapshots.push({
+                    'data': new Uint8ClampedArray(this.exportLayer()),
                     'stackState': this.actionQueue.length
                 });
 
             }
-            */
 
             this.instance.exports.startPath(x, y);
             this.updateCanvas(false);
             this.currentActionPath.push([x, y]);
 
-            this.snapshotStrokeCount[currentLayer]++;
+            this.layers[this.currentLayer].strokes++;
         } else {
             this.posX = e.offsetX;
             this.posY = e.offsetY;
@@ -426,13 +543,13 @@ export class FastPaintCore {
             this.updateCanvas(true); //spot fix for now. Need to blend better around cursor
             this.edited = true;
 
-            /*
             if (this.currentActionPath.length > 0) {
                 const actionHistoryItem = {
+                	'type': "paint",
                     'path': this.currentActionPath,
                     'type': 'draw',
                     'brushStatus': this.getTools(),
-                    'layer': this.instance.exports.getCurrentLayer()
+                    'layer': this.currentLayer
                 }
 
                 //add action here. Cut at some length because of limited memory...
@@ -440,9 +557,11 @@ export class FastPaintCore {
                     this.actionQueue.push(actionHistoryItem);
                 }
             }
-            */
 
             this.currentActionPath = [];
+
+            //update canvas preview
+            this.updateGuideImage()
         } else {
 
         }
@@ -524,9 +643,9 @@ export class FastPaintCore {
         let offsetY = event.clientY - rect.top;
 
         if (invertAxis) {
-            this.setPosition(this.canvas, (this.posX - offsetX), (this.posY - offsetY))
+            this.setPosition(this.canvasParent, (this.posX - offsetX), (this.posY - offsetY))
         } else {
-            this.setPosition(this.canvas, (offsetX - this.posX), (offsetY - this.posY))
+            this.setPosition(this.canvasParent, (offsetX - this.posX), (offsetY - this.posY))
         }
 
         this.updateGuide()
@@ -589,7 +708,7 @@ export class FastPaintCore {
         if (this.scaleConstant < 5) {
             this.scaleConstant += 0.02
         }
-        this.canvas.style.transform = `scale(${this.scaleConstant})`
+        this.canvasParent.style.transform = `scale(${this.scaleConstant})`
 
         this.updateBoundingRect()
         this.updateGuide()
@@ -600,41 +719,43 @@ export class FastPaintCore {
         if (this.scaleConstant > 0) {
             this.scaleConstant -= 0.02
         }
-        this.canvas.style.transform = `scale(${this.scaleConstant})`
+        this.canvasParent.style.transform = `scale(${this.scaleConstant})`
 
         this.updateBoundingRect();
         this.updateGuide()
     }
 
-    //undo/redo lives here
-    undoAction() {
-        //start with last stack image
+    undoPaint(){
+    	//start with last stack image
         if (this.actionQueue.length == 0) {
             return;
         }
 
         //get layer we are drawing on to go back to it
-        const currentSelectedLayer = this.instance.exports.getCurrentLayer();
+        const currentSelectedLayer = this.currentLayer
         const currentTools = this.getTools();
 
         //target layer for undo
         const layer = this.actionQueue[this.actionQueue.length - 1].layer;
 
+        //new: swap back to last layer for a moment
+        this.selectLayer(layer)
+
         //clear selected layer
         this.instance.exports.clearLayer(layer);
 
         //get last relevant snapshot and restore to there
-        const nextSnapshot = this.snapshotQueue[layer][this.snapshotQueue[layer].length - 1].data;
-        this.importLayer(layer, 2, nextSnapshot);
+        const nextSnapshot = this.layers[this.currentLayer].snapshots[this.layers[this.currentLayer].snapshots.length - 1].data;
+        this.importLayerFlat(nextSnapshot);
 
         //reduce stroke count for this layer by 1
-        this.snapshotStrokeCount[layer]--;
+        this.layers[this.currentLayer].strokes--;
 
         //add action to redo queue
         this.redoActionQueue.push(this.actionQueue.pop());
 
         //figure out where in action stack to start to replicate (from last snapshot -> end)
-        const aqStart = this.snapshotQueue[layer][this.snapshotQueue[layer].length - 1].stackState;
+        const aqStart = this.layers[this.currentLayer].snapshots[this.layers[this.currentLayer].snapshots.length - 1].stackState;
         const aqEnd = this.actionQueue.length - 1;
 
         for (let i = aqStart; i <= aqEnd; i++) {
@@ -649,30 +770,33 @@ export class FastPaintCore {
         this.updateCanvas(false);
 
         //if we need to, pop last snapshot off the stack so we can go back to the last one
-        if (this.snapshotStrokeCount[layer] % this.undoStride == 0 && this.snapshotQueue[layer].length > 1) {
-            this.snapshotQueue[layer].pop();
+        if (this.layers[this.currentLayer].strokes % this.undoStride == 0 && this.layers[this.currentLayer].snapshots.length > 1) {
+            this.layers[this.currentLayer].snapshots.pop();
         }
 
         //restore old layer
         this.selectLayer(currentSelectedLayer);
-        this.configTools(currentTools)
+        this.configTools(currentTools);
 
         //restore old tools
+
+        //re-draw the layer guide
+        this.updateGuideImage()
     }
 
-    redoAction() {
-        if (redoActionQueue.length == 0) {
+    redoPaint(){
+    	if (this.redoActionQueue.length == 0) {
             return;
         }
 
         //get last selected layer for restore
-        const currentSelectedLayer = this.instance.exports.getCurrentLayer();
+        const currentSelectedLayer = this.currentLayer
         const currentTools = this.getTools();
 
         const action = this.redoActionQueue.pop()
         this.actionQueue.push(action);
 
-        this.snapshotStrokeCount[action.layer]++;
+        this.layers[this.currentLayer].strokes++;
 
         //if we are on current layer, undo starting here
         this.actionReplay(action);
@@ -684,6 +808,52 @@ export class FastPaintCore {
 
         //restore old tools
         this.configTools(currentTools)
+
+        //update guide
+        this.updateGuideImage()
+    }
+
+    //undo/redo actions are routed out here
+    undoAction() {
+        const action = this.actionQueue[this.actionQueue.length - 1]
+
+        switch (action.type) {
+        	case "draw":
+        		this.undoPaint();
+        	break;
+        	case "addLayer":
+        		this.undoAddLayer();
+        	break;
+        	case "reorderLayer":
+        		this.undoSwapLayer();
+        	break;
+        	case "deleteLayer":
+        		this.undoDeleteLayer();
+        	break;
+        	default:
+        	this.dlog(`missing undo action ${action.type}`)
+        }
+    }
+
+    redoAction() {
+        const action = this.redoActionQueue[this.redoActionQueue.length - 1]
+
+        switch (action.type) {
+        	case "draw":
+        		this.redoPaint();
+        	break;
+        	case "addLayer":
+        		this.redoAddLayer();
+        	break;
+        	case "reorderLayer":
+        		this.redoSwapLayer();
+        	break;
+        	case "deleteLayer":
+        		this.redoDeleteLayer();
+        	break;
+        	default:
+        	this.dlog(`missing redo action ${action.type}`)
+        }
     }
 
     //generic helper, will execute action stored in struct
@@ -713,15 +883,31 @@ export class FastPaintCore {
             this.instance.exports.blendLayers();
         }
 
+        //draw on canvas layer
         const usub = new Uint8ClampedArray(this.memory.buffer, this.pointer, this.byteSize);
         this.img = new ImageData(usub, this.width, this.height);
-        this.ctx.putImageData(this.img, 0, 0);
-        this.updateGuideImage()
+        this.layers[this.currentLayer].drawCtx.putImageData(this.img, 0, 0);
+
+        //draw on overlay layer
+        const usubOverlay = new Uint8ClampedArray(this.memory.buffer, this.overlayPointer, this.byteSize);
+        const overlay = new ImageData(usubOverlay, this.width, this.height);
+        this.ctx.putImageData(overlay, 0, 0);
+
+        //too performance intensive to use directly here
+        //this.updateGuideImage()
         this.drawGuideBounds()
     }
 
     updateGuideImage() {
-        this.guideCtx.putImageData(this.img, 0, 0)
+        this.guideCtx.clearRect(0, 0, this.width, this.height)
+
+        for (let i = 0; i < this.layers.length; i++) {
+            let layer = this.layers[i]
+
+            if (layer.shown) {
+                this.guideCtx.drawImage(layer.domRef, 0, 0)
+            }
+        }
     }
 
     drawGuideBounds() {
@@ -739,5 +925,249 @@ export class FastPaintCore {
         this.instance.exports.clearCurrentLayer();
     }
 
+    //turns canvas into frozen object
+    dehydrate(name) {
+        this.saveCurrentLayer()
+        const content = this.exportDataURL()
+
+        for (let i = 0; i < this.layers.length; i++) {
+            delete this.layers[i].domRef;
+            delete this.layers[i].drawCtx;
+        }
+
+        const saveObject = {
+            'name': name,
+            'content': content,
+            'layers': this.layers,
+            'width': this.width,
+            'height': this.height,
+            'currentLayer': this.currentLayer
+        }
+
+        return saveObject
+    }
+
+    //will load canvas from memory into workspace
+    hydrate(saveObject, drawConfigObject) {
+        this.freeState(saveObject.width, saveObject.height, drawConfigObject)
+        //copy to object storage first
+        this.currentLayer = saveObject.currentLayer;
+
+        //sync to dom nodes
+        for (let i = 0; i < saveObject.layers.length; i++) {
+            let layer = saveObject.layers[i]
+            let canvas = this.addDOMLayer(saveObject.width, saveObject.height);
+            this.addToLayersObject(layer.shown, layer.data, layer.name, canvas, canvas.getContext('2d'))
+        }
+
+        //paint back layers
+        for (let i = 0; i < this.layers.length; i++) {
+            let layer = this.layers[i]
+
+            if (layer.shown) {
+                let img = new ImageData(new Uint8ClampedArray(layer.data), this.width, this.height);
+
+                layer.drawCtx.putImageData(img, 0, 0);
+            }
+        }
+
+        //update render from core
+        let newData = this.layers[this.currentLayer].data
+        this.importLayerFlat(newData)
+        this.instance.exports.endPath()
+        this.updateCanvas(false)
+        //this.selectLayer(this.currentLayer + 1);
+        //this.updateCanvas(false);
+    }
+
+    undoDisabled(){
+    	if (this.actionQueue.length > 0){
+    		return false
+    	}
+    	return true
+    }
+
+    redoDisabled() {
+    	if(this.redoActionQueue.length > 0){
+    		return false
+    	}
+    	return true
+    }
+
+    dlog(text){
+    	console.log(text)
+    }
+
+    changeLayerName(layer, newName){
+    	this.layers[layer].name = newName
+    }
+
+    //todo/to implement
+    deleteSelectedLayer(){
+    	this.deleteLayer(this.currentLayer)
+    }
+
+    deleteLayer(layerToRemove){
+    	//cache
+    	const cachedLayer = this.layers[layerToRemove]
+
+    	const newLayer = this.deleteLayerCore(layerToRemove)
+
+    	//add to history
+    	const actionHistoryItem = {
+        	'type': "deleteLayer",
+            'layer': cachedLayer,
+            'index': layerToRemove
+        }
+        this.actionQueue.push(actionHistoryItem)
+    
+    	return newLayer
+    }
+
+    deleteLayerCore(layerToRemove){
+    	let newLayer = -1
+
+    	//reselect next layer (if we can)
+    	if(this.layers.length > 1){ //might be glitchy
+    		if(layerToRemove == 0){
+    			newLayer = 1
+    			this.selectLayer(newLayer)
+    		} 
+    		else {
+    			newLayer = layerToRemove - 1
+    			this.selectLayer(newLayer)
+    		}
+    	}
+
+    	//remove from DOM
+    	this.layers[layerToRemove].domRef.remove()
+
+    	//remove from layers object
+    	this.layers.splice(layerToRemove, 1)
+    	
+    	//rerender guide
+    	this.updateGuideImage()
+    	
+    	return newLayer
+    }
+
+    //TODO
+    undoDeleteLayer(){
+    	const action = this.actionQueue.pop()
+
+    	//add back layer at index
+    	let index = action.index
+    	let canvas = this.addDOMLayer(this.width, this.height, index)
+    	this.addToLayersObject(action.layer.shown, action.layer.data, action.layer.name, canvas, canvas.getContext('2d'));
+
+    	//paint back layer, if we need to
+    	if (action.layer.shown) {
+            let img = new ImageData(new Uint8ClampedArray(action.layer.data), this.width, this.height);
+
+            this.layers[index].drawCtx.putImageData(img, 0, 0); //might not be the right way to do it
+        }
+
+    	//rerender guide
+    	this.updateGuideImage()
+
+    	//add action to redo queue
+        this.redoActionQueue.push(action);
+    }
+
+    redoDeleteLayer(){
+    	const action = this.redoActionQueue.pop()
+
+    	//re delete
+    	this.deleteLayerCore(action.index)
+
+    	//add action to undo queue
+        this.actionQueue.push(action);
+    }
+
+    swapLayer(oldPos, newPos){
+    	this.swapLayerCore(oldPos, newPos);
+
+    	//log to history
+    	const actionHistoryItem = {
+        	'type': "reorderLayer",
+            'from': oldPos,
+            'to': newPos
+        }
+        this.actionQueue.push(actionHistoryItem)
+    }
+
+    swapLayerCore(oldPos, newPos){
+    	//rearrange layers data structure (easiest thing)
+    	const newLayers = this.layers
+
+	    if(oldPos < newPos){ //push the rest of the layers forward
+	      newLayers.splice(newPos + 1, 0, newLayers[oldPos])
+	      newLayers.splice(oldPos, 1)
+	    }
+	    else { //push old layer back
+	      newLayers.splice(newPos, 0, newLayers[oldPos])
+	      newLayers.splice(oldPos + 1, 1)
+	    }
+
+	    this.layers = newLayers
+
+	    //rearrange on DOM
+	    for(let i = 0; i < this.layers.length; i++){
+	    	this.canvasParent.appendChild(this.layers[i].domRef)
+	    }
+
+	    //select new node
+        this.currentLayer = newPos
+
+        //swap data back into memory buffer
+        const newData = this.layers[newPos].data
+        this.importLayerFlat(newData)
+        this.instance.exports.endPath() //bit of a misnomer. Will copy buffer into blend array
+        this.updateCanvas(false)
+
+	    //rerender guide
+    	this.updateGuideImage()
+
+    	//memory for current layer not getting copied to draw buffer/is wiped out
+    }
+
+    undoSwapLayer(){
+    	const action = this.actionQueue.pop()
+
+    	//un swap
+    	this.swapLayerCore(action.to, action.from)
+
+    	//add action to redo queue
+        this.redoActionQueue.push(action);
+    }
+
+    redoSwapLayer(){
+    	const action = this.redoActionQueue.pop()
+
+    	//re swap
+    	this.swapLayerCore(action.to, action.from)
+
+    	//add action to undo queue
+        this.actionQueue.push(action);
+    }
 
 }
+
+/*
+bug tracker:
+prevent throwing a million errors once we delete all layers
+in general, active layer status isn't always being updated 
+still need to test undo deleting layers
+*/
+
+/*
+11/19: 
+named layers
+start on deleted layers
+most of integration with 'new core' is working
+start on rearranging layers
+
+11/20:
+undo for all mutable actions
+fixed a bunch of bugs
+*/

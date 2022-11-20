@@ -40,8 +40,8 @@ function createCanvasList(){
 				let transaction = db.transaction("canvasList", "readwrite");
 				let canvasList = transaction.objectStore("canvasList");
 
+				console.log(value)
 				let request = canvasList.put(value); 
-				console.log('txstart')
 				request.onsuccess = function(event){
 					const key = event.target.result;
 					value.id = key;

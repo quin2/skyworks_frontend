@@ -16,6 +16,7 @@ struct point oldP;
 
 int* alphaMask;
 int* overlay;
+int* overlayLayer;
 
 int* activeLayer;
 int* trackLayer;
@@ -121,6 +122,14 @@ void allocateSaved(int* data){
 	}
 }
 
+int* getLayerRef(){
+	return layer;
+}
+
+int* getOverlayRef(){
+	return overlayLayer;
+}
+
 
 void setBrushPixel(int *brush, int width, int x, int y, int value){
 	if(value <= 0 || value > 255){
@@ -129,14 +138,15 @@ void setBrushPixel(int *brush, int width, int x, int y, int value){
 	brush[x + (y * width)] = (uint8_t) value;
 }
 
+//added some small tweaks here to account for glitched pixels
 void drawBrushLine(int *brush, int width, int x, int start_y, int end_y, int alpha){
-	for(int i = start_y; i <= end_y; i++){
+	for(int i = start_y + 1; i < end_y; i++){
 		setBrushPixel(brush, width, x, i, alpha);
 	}
 }
 
 void drawBrushLineH(int *brush, int width, int start_x, int end_x, int y, int alpha){
-	for(int i = start_x; i <= end_x; i++){
+	for(int i = start_x + 1; i <= end_x - 1; i++){
 		setBrushPixel(brush, width, i, y, alpha);
 	}
 }
@@ -157,6 +167,7 @@ void setPixel4(int *brush, int *brushGuide, int width, int cx, int cy, int dx, i
 	setBrushPixel(brush, width, cx - dx, cy + dy, alpha); //"alpha" goes at the end
 	setBrushPixel(brush, width, cx + dx, cy - dy, alpha);
 	setBrushPixel(brush, width, cx - dx, cy - dy, alpha);
+
 
 	//draw brush guide
 	setBrushPixel(brushGuide, width, cx + dx, cy + dy, 255);
@@ -179,6 +190,7 @@ void computeAACircleMask(int width, double alpha, int *brush, int *brushGuide){
 
 	float quarter = roundf(radiusX2 / sqrtf(radiusX2 + radiusY2));
 	for(float _x = 0; _x <= quarter; _x++) {
+
 	    float _y = radiusY * sqrtf(1 - _x * _x / radiusX2);
 	    float error = _y - floorf(_y);
 
@@ -186,8 +198,7 @@ void computeAACircleMask(int width, double alpha, int *brush, int *brushGuide){
 	    int alpha = transparency;
 	    int alpha2 = maxTransparency - transparency;
 
-	    //alpha is alpha and flood is maxTransparency here
-	    setPixel4(brush, brushGuide, width, r, r, (int)_x, (int)floorf(_y), alpha, roundf(maxTransparency), drawLinesDirection); //aloha
+	    setPixel4(brush, brushGuide, width, r, r, _x, floorf(_y), alpha, maxTransparency, drawLinesDirection); //aloha
 	}
 
 	quarter = roundf(radiusY2 / sqrtf(radiusX2 + radiusY2));
@@ -201,7 +212,7 @@ void computeAACircleMask(int width, double alpha, int *brush, int *brushGuide){
 
 	    drawLinesDirection = 0;
 
-	    setPixel4(brush, brushGuide, width, r, r, (int) floorf(_x), (int)_y, alpha, roundf(maxTransparency), drawLinesDirection); //alph
+	    setPixel4(brush, brushGuide, width, r, r, floorf(_x), _y, alpha, maxTransparency, drawLinesDirection); //alph
 	}
 }
 
@@ -296,18 +307,22 @@ void blendLayersBounded(int startX, int startY, int endX, int endY){
 		}	
 	}
 	
-	/*
+	
 	//blend the overlay on top
 	for(int i = startX; i < endX; i++){
 		for(int j = startY; j < endY; j++){
 			int idx = (j * WIDTH + i);
 
+			overlayLayer[idx] = (0 << 24) | (0 << 16) | (0 << 8) | 0;
+
 			if(overlay[idx] != 0){
-				screen[idx] = (overlay[idx] << 24) | (0 << 16) | (0 << 8) | 0;
+				//below should be screen, not overlay
+			//overlay[idx]
+				overlayLayer[idx] = (overlay[idx] << 24) | (0 << 16) | (0 << 8) | 0;
 			}
 		}
 	}
-	*/
+	
 }
 
 void blendLayers(){
@@ -330,9 +345,14 @@ void drawBufferBounded(int startX, int startY, int endX, int endY){
 			
 			uint8_t newA = (uint8_t) buffer[off]; 
 
-			uint8_t newRed = (uint8_t ) RED * (newA / 255.0);
-			uint8_t newGreen = (uint8_t) GREEN * (newA / 255.0);
-			uint8_t newBlue = (uint8_t) BLUE * (newA / 255.0);
+			/*
+			looks fine, problem is that we are 'peeking' into layer below 
+			*/
+
+			//TODO: fix below
+			uint8_t newRed = (uint8_t) RED; //* (newA / 255.0);
+			uint8_t newGreen = (uint8_t) GREEN; //* (newA / 255.0);
+			uint8_t newBlue = (uint8_t) BLUE; //* (newA / 255.0);
 
 			uint32_t oldColor = alphaMask[off];
 			int bitMask = ((1<<8)-1);
@@ -344,9 +364,11 @@ void drawBufferBounded(int startX, int startY, int endX, int endY){
 
 			uint32_t newColor = (newA << 24) | (newBlue << 16) | (newGreen << 8) | newRed;
 
-			if(oldA != 0 && newRed < 255 && newGreen < 255 && newBlue < 255){
-				newColor = AlphaBlendPixels(oldColor, newColor); //old, new
+			//if(oldA != 0 && newRed < 255 && newGreen < 255 && newBlue < 255){
+			if(oldA != 0){
+				newColor = AlphaBlendPixels(alphaMask[off], newColor); //old, new
 			}
+			//}
 
 			//issue with this is that we end up blending again. vs with above, we don't do that (blend once)
 			//uint32_t colorToCache = AlphaBlendPixels(trackLayer[off], newColor); 
@@ -378,6 +400,10 @@ void setLayerColor(int color){
 	}
 }
 
+void fillLayer(int red, int green, int blue, int alpha){
+	setLayerColor((alpha << 24) | (blue << 16) | (green << 8) | red);
+}
+
 void clearScreen(){
 	for(int i = 0; i < WIDTH; i++){
 		for(int j = 0; j < HEIGHT; j++){
@@ -398,7 +424,9 @@ void clearLayer(){
 			int off = (j * WIDTH + i);
 
 			layer[off] = (0 << 24) | (0 << 16) | (0 << 8) | 0;
+			buffer[off] = (0 << 24) | (0 << 16) | (0 << 8) | 0;
 			alphaMask[off] = (0 << 24) | (0 << 16) | (0 << 8) | 0;
+			screen[off] = (0 << 24) | (0 << 16) | (0 << 8) | 0;
 		}
 	}
 }
@@ -516,9 +544,12 @@ void endPath(){
 		for(int j = 0; j < HEIGHT; j++){
 			int off = (j * WIDTH + i);
 			
+			//TODO: remove this
+			/*
 			if(buffer[off] == 0){
 				continue;
 			}
+			*/
 						
 			alphaMask[off] = layer[off]; 
 			buffer[off] = 0;
@@ -608,6 +639,7 @@ void initSystem(){
 	buffer = (int*)malloc(nb * sizeof(int));
 	alphaMask = (int*)malloc(nb * sizeof(int));
 	overlay = (int*)malloc(nb * sizeof(int));
+	overlayLayer = (int*)malloc(nb * sizeof(int));
 	trackLayer = (int*)malloc(nb * sizeof(int));
 	layer = (int*)malloc(nb * sizeof(int));
 	

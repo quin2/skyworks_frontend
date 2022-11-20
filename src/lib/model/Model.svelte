@@ -34,6 +34,6 @@
 
 		position: absolute;
 
-		z-index: 20;
+		z-index: 150;
 	}
 </style>

@@ -31,7 +31,7 @@
 
   let layerList = [];
 
-  let selectedLayer = 1;
+  let selectedLayer = 0;
   
   modelOpen.subscribe(value => {
     open = value;
@@ -52,33 +52,8 @@
   }
 
   function saveData(){
-    let storedLayers = [];
+    const saveObject = core.dehydrate(canvasName)
 
-    const allLayers = core.getLayers();
-
-    for(let i = 0; i < allLayers.length; i++){
-      const layer = allLayers[i];
-
-      const layerData = core.exportLayer(layer.pos);
-
-      storedLayers.push({
-        'pos': layer.pos, 
-        'data': new Uint8Array(layerData), 
-        'status': layer.status, 
-        'selected': layer.pos == selectedLayer
-      });
-    }
-
-    const content = core.exportDataURL();
-
-    const saveObject = {
-      'name': canvasName,
-      'content': content,
-      'layers': storedLayers,
-      'width': core.width,
-      'height': core.height
-    }
-    
     if(!openCanvasHash){
       canvasList.new(saveObject)
     }
@@ -90,28 +65,16 @@
   }
 
   function loadData(file){
-    //issue might be with selecting the wrong layer. root of problem is showing here anyway
-    for(let i = 0; i < file.layers.length; i++){
-      const layer = file.layers[i]; 
-      
-      console.log(layer.data)
-      core.importLayer(layer.pos, layer.status, layer.data);
-
-      if(layer.selected){
-        selectedLayer = layer.pos;
-      }
+    let drawConfigObject = {
+      color: [...color, alpha],
+      size: size,
+      mode: mode,
+      shape: shape
     }
 
-    layerList = file.layers;
+    core.hydrate(file, drawConfigObject)
 
-    //this line is causing trouble
-    core.selectLayer(selectedLayer);
-
-    /*
-      root problem might be that we are blending incorrectly 
-    */
-
-    core.updateCanvas(false);
+    layerList = core.getLayers();
   }
 
   let drawConfigObject = {
@@ -123,9 +86,10 @@
 
   onMount(async () => {
     core = new FastPaintCore(document.getElementById('left-pane'), "guide1");
-    await core.init(drawConfigObject);
+    await core.setupDraw(400, 400, drawConfigObject)
 
-    //layerList = core.getLayers();
+    layerList = core.getLayers();
+    console.log(layerList)
   })
 
   function changeToolSize(localSize){
@@ -189,7 +153,7 @@
       shape: shape
     }
 
-    core.freeState(width, height, drawConfigObject);
+    core.newCanvas(width, height, drawConfigObject);
 
     canvasName = "untitled";
 
@@ -210,21 +174,25 @@
     makeNewCanvas(file.width, file.height);
     loadData(file);
     canvasName = file.name;
+    selectedLayer = core.currentLayer
   }
 
   function undoAction(){
-    if(core.redoActionQueue.length > 0){
-      redoDisabled = false;
-    }
-    else {
-      redoDisabled = true;
-    }
-
     core.undoAction();
+
+    undoDisabled = core.undoDisabled();
+    redoDisabled = core.redoDisabled();
+
+    layerList = core.getLayers();
   }
 
   function redoAction(){
     core.redoAction();
+
+    undoDisabled = core.undoDisabled();
+    redoDisabled = core.redoDisabled();
+
+    layerList = core.getLayers();
   }
 
   function zoomInAction(){
@@ -241,20 +209,23 @@
 
   function calcUIState(){
     if(core){
-      if(core.redoActionQueue.length > 0){
-      redoDisabled = false;
+      undoDisabled = core.undoDisabled();
+      redoDisabled = core.redoDisabled();
     }
-    else {
-      redoDisabled = true;
-    }
+  }
 
-    if(core.actionQueue.length > 0){
-      undoDisabled = false;
-    }
-    else {
-      undoDisabled = true;
-    }
-    }
+  function changeLayerName(layer, newName){
+    core.changeLayerName(layer, newName)
+  }
+
+  function deleteLayer(){
+    selectedLayer = core.deleteSelectedLayer()
+    layerList = core.getLayers();
+  }
+
+  function swapLayer(oldLocation, newLocation){
+    core.swapLayer(oldLocation, newLocation);
+    layerList = core.getLayers();
   }
   
 </script>
@@ -342,6 +313,9 @@
       selectLayerAction={selectLayer}
       hideLayerAction={hideLayer}
       layerList={layerList}
+      changeLayerNameAction={changeLayerName}
+      deleteLayerAction={deleteLayer}
+      swapLayerAction={swapLayer}
       bind:selectedLayer={selectedLayer}
     />
 
