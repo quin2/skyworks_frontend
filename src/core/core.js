@@ -510,11 +510,15 @@ export class FastPaintCore {
 
         if (!this.moveMode) {
 
+        	if(this.layers.length <= 0){
+        		return;
+        	}
+
             //grab layer snapshot for undo buffer, if we need one
             this.redoActionQueue = [];
 
             if ((this.layers[this.currentLayer].strokes % this.undoStride) == 0) {
-                console.log("exporting")
+                
                 this.layers[this.currentLayer].snapshots.push({
                     'data': new Uint8ClampedArray(this.exportLayer()),
                     'stackState': this.actionQueue.length
@@ -879,6 +883,10 @@ export class FastPaintCore {
     }
 
     updateCanvas(skipBlend) {
+    	if(this.layers.length <= 0){
+    		return;
+    	}
+
         if (!skipBlend) {
             this.instance.exports.blendLayers();
         }
@@ -1037,6 +1045,9 @@ export class FastPaintCore {
     			newLayer = layerToRemove - 1
     			this.selectLayer(newLayer)
     		}
+    	} 
+    	else if(this.layers.length == 1){
+    		this.instance.exports.clearLayer();
     	}
 
     	//remove from DOM
@@ -1151,23 +1162,17 @@ export class FastPaintCore {
         this.actionQueue.push(action);
     }
 
+    getSelectedLayer(){
+    	return this.currentLayer;
+    }
+
 }
 
 /*
 bug tracker:
-prevent throwing a million errors once we delete all layers
-in general, active layer status isn't always being updated 
-still need to test undo deleting layers
-*/
-
-/*
-11/19: 
-named layers
-start on deleted layers
-most of integration with 'new core' is working
-start on rearranging layers
-
-11/20:
-undo for all mutable actions
-fixed a bunch of bugs
+enh list:
+rename file from filesModel
+color picker 2
+control canvas position from guide
+better hex validation in color input
 */

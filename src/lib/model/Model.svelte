@@ -2,9 +2,11 @@
 	import {modelState} from '../../stores/stores.js'
 	import FilesModel from './FilesModel.svelte'
 	import SettingsModel from './SettingsModel.svelte'
+	import ColorsModel from './ColorsModel.svelte'
 
 	export let makeNewCanvas;
 	export let loadOldCanvas;
+	export let setColor;
 
 	let _modelState
 	modelState.subscribe(value => {
@@ -14,10 +16,13 @@
 
 <div class="modelBg">
 	{#if _modelState == 'files'}
-	<FilesModel loadOldCanvas={loadOldCanvas}/>
-		{:else}
+		<FilesModel loadOldCanvas={loadOldCanvas}/>
+	{:else}
 		{#if _modelState == 'cSettings'}
 			<SettingsModel makeNewCanvas={makeNewCanvas}/>
+		{/if}
+		{#if _modelState == 'cColor'}
+			<ColorsModel setColor={setColor}/>
 		{/if}
 	{/if}
 </div>

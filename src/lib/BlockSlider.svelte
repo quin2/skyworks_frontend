@@ -4,11 +4,21 @@
 
       export let value = 50;
 
-      export let onChange = null;
+      export let onChange = () => {};
+
+      export let onInput = () => {};
 </script>
 
 <div class="block-3 block block-border">
-      <input type="range" min={min} max={max} class="block-slider" id="myRange" bind:value on:change={() => onChange(value)}>
+      <input 
+            type="range" 
+            min={min} 
+            max={max} 
+            class="block-slider" id="myRange" 
+            bind:value={value} 
+            on:change={() => onChange(value)} 
+            on:input={() => onInput(value) }
+      >
       <span class="block-slider-val">{value}</span>
 </div>
 

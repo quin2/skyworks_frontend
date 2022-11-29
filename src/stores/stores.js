@@ -1,9 +1,22 @@
 import { writable } from 'svelte/store';
 
-export const modelOpen = writable(false);
+//model is open or closed
+export const modelOpen = writable(false); //false
 
-export const modelState = writable('');
+//what the model is showing
+export const modelState = writable(''); 
 
+//current color
+export const selectedColor = writable('#000000');
+
+//past n selected colors
+export const colorHistory = writable([]);
+export const colorHistoryLimit = 6; //limit to history
+
+//last selected tab in palette
+export const selectedColorTab = writable('picker')
+
+//state management for canvas memory
 function createCanvasList(){
 	const { subscribe, set, update } = writable({})
 
@@ -32,8 +45,6 @@ function createCanvasList(){
 		subscribe,
 		new: (value) => {
 			let openRequest = indexedDB.open("juni", 4);
-
-			console.log('open')
 
 			openRequest.onsuccess = function () {
 				let db = openRequest.result;

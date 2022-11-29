@@ -46,16 +46,13 @@
 		<ModelButton icon={faTrashCan} caption="delete" disabled={!fileSelected} clickAction={removeSelectedFile}/>
 	</div>
 	<div class="fileBody" on:click={fileSelectedAway}>
+		<ModelFile title={"make new canvas"} fileClicked={() => modelState.set('cSettings')} selected={false} fileThumb={null} isAddNew={true}/>
+
 		{#each $canvasList as canvas}
 			{#if canvas}
 				<ModelFile title={canvas.name} fileClicked={() => fileClicked(canvas)} selected={selectedFile && canvas.id == selectedFile.id} fileThumb={canvas.content}/>
 			{/if}
 		{/each}
-
-		<div class="file" on:click={() => modelState.set('cSettings')}>
-			<div class="fileImage"></div>
-			<div class="fileTitle">add new</div>
-		</div>
 	</div>
 </div>
 
@@ -77,11 +74,6 @@
 	}
 
 	.fileBody {
-		display:  grid;
-		grid-template-columns: repeat(3, 1fr);
-		grid-template-rows: repeat(minmax(100px, 1fr));
-		grid-gap:  10px;
-
 		overflow: auto;
 		padding:  10px;
 	}
@@ -97,5 +89,6 @@
 		flex-direction: row;
 		justify-content: flex-end;
 		margin-top: 10px;
+		margin-bottom: 10px;
 	}
 </style>

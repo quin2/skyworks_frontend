@@ -11,10 +11,12 @@
   import BlockButton from './lib/BlockButton.svelte';
   import BlockRadio from './lib/BlockRadio.svelte';
   import BlockLayers from './lib/BlockLayers.svelte';
+  import BlockColor from './lib/BlockColor.svelte';
+  import BlockTextentry from './lib/BlockTextentry.svelte';
 
   import Model from './lib/model/Model.svelte'
 
-  import { modelOpen, modelState, canvasList } from './stores/stores.js'
+  import { modelOpen, modelState, canvasList, selectedColor } from './stores/stores.js'
 
   import { FastPaintCore } from './core/core.js'
 
@@ -28,6 +30,8 @@
   let size = 20;
   let color = [0, 0, 0];
   let alpha = 255;
+
+  let svColor = "#000000"
 
   let layerList = [];
 
@@ -74,7 +78,7 @@
 
     core.hydrate(file, drawConfigObject)
 
-    layerList = core.getLayers();
+    calcUIState()
   }
 
   let drawConfigObject = {
@@ -88,8 +92,7 @@
     core = new FastPaintCore(document.getElementById('left-pane'), "guide1");
     await core.setupDraw(400, 400, drawConfigObject)
 
-    layerList = core.getLayers();
-    console.log(layerList)
+    calcUIState()
   })
 
   function changeToolSize(localSize){
@@ -99,7 +102,7 @@
 
   function changeToolColor(localColor){
 
-    const hexValue = localColor.target.value.substring(1);
+    const hexValue = localColor.substring(1);
     const aRgbHex = hexValue.match(/.{1,2}/g);  
 
     const r = parseInt(aRgbHex[0], 16);
@@ -133,7 +136,7 @@
 
   function addLayer(){
     core.addLayer();
-    layerList = core.getLayers();
+    calcUIState();
   }
 
   function selectLayer(layer){
@@ -142,7 +145,7 @@
 
   function hideLayer(layer){
     core.hideLayer(layer);
-    layerList = core.getLayers();
+    calcUIState();
   }
 
   function makeNewCanvas(width, height){
@@ -157,11 +160,7 @@
 
     canvasName = "untitled";
 
-    selectedLayer = 1;
-    layerList = core.getLayers();
-
-    undoDisabled = true;
-    redoDisabled = true;
+    calcUIState()
   }
 
   function makeNewCanvasDriver(width, height){
@@ -174,25 +173,19 @@
     makeNewCanvas(file.width, file.height);
     loadData(file);
     canvasName = file.name;
-    selectedLayer = core.currentLayer
+    calcUIState()
   }
 
   function undoAction(){
     core.undoAction();
 
-    undoDisabled = core.undoDisabled();
-    redoDisabled = core.redoDisabled();
-
-    layerList = core.getLayers();
+    calcUIState()
   }
 
   function redoAction(){
     core.redoAction();
 
-    undoDisabled = core.undoDisabled();
-    redoDisabled = core.redoDisabled();
-
-    layerList = core.getLayers();
+    calcUIState()
   }
 
   function zoomInAction(){
@@ -211,6 +204,9 @@
     if(core){
       undoDisabled = core.undoDisabled();
       redoDisabled = core.redoDisabled();
+
+      selectedLayer = core.getSelectedLayer()
+      layerList = core.getLayers()
     }
   }
 
@@ -219,13 +215,24 @@
   }
 
   function deleteLayer(){
-    selectedLayer = core.deleteSelectedLayer()
-    layerList = core.getLayers();
+    core.deleteSelectedLayer()
+    calcUIState()
   }
 
   function swapLayer(oldLocation, newLocation){
     core.swapLayer(oldLocation, newLocation);
-    layerList = core.getLayers();
+    calcUIState()
+  }
+
+  function pickColor(){
+    modelOpen.set(true)
+    modelState.set('cColor')
+  }
+
+  function setColor(){
+    //get color from store and set, once we close the color picker model
+    changeToolColor($selectedColor)
+
   }
   
 </script>
@@ -234,6 +241,7 @@
     <Model 
       makeNewCanvas={makeNewCanvasDriver}
       loadOldCanvas={loadOldCanvas}
+      setColor={setColor}
       />
   {/if}
 
@@ -248,7 +256,7 @@
     <div class="block-group">
       <BlockButton icon={faHome} clickAction={openFiles}/>
 
-      <div class="block-3 block"><input type="text" class="block-text block-textentry" bind:value={canvasName}></div>
+      <BlockTextentry value={canvasName}/>
     </div>
     
 
@@ -287,9 +295,7 @@
     <div class="block-group">
       <BlockSlider min={0} max={100} value={size} onChange={changeToolSize}/>
       
-      <div class="block block-1">
-        <input type="color" id="colorInput" class="block-color" on:change={changeToolColor}>
-      </div>
+      <BlockColor clickAction={pickColor}/>
     </div>
 
     <div class="block-group">
