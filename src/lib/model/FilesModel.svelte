@@ -1,5 +1,5 @@
 <script>
-	import { faFloppyDisk, faTrashCan, faPenToSquare } from '@fortawesome/free-solid-svg-icons'
+	import { faFloppyDisk, faTrashCan, faPenToSquare, faCog } from '@fortawesome/free-solid-svg-icons'
 	import ModelButton from '../ModelButton.svelte'
 	import ModelFile from '../ModelFile.svelte'
 
@@ -37,10 +37,23 @@
 
 		modelOpen.set(false);
 	}
+
+	function changeFileName(){
+
+	}
+
+	function openPref(){
+		modelState.set('cPref')
+	}
 </script>
 
 <div class="modelHolder modelBrand">
 	<div class="modelBar">
+		<div class="settingsContain">
+			<ModelButton icon={faCog} caption="" clickAction={openPref}/>
+		</div>
+		
+
 		<ModelButton icon={faPenToSquare} caption="edit" disabled={!fileSelected} clickAction={editCanvas}/>
 		<ModelButton icon={faFloppyDisk} caption="save" disabled={!fileSelected} clickAction={downloadSelectedFile}/>
 		<ModelButton icon={faTrashCan} caption="delete" disabled={!fileSelected} clickAction={removeSelectedFile}/>
@@ -50,7 +63,12 @@
 
 		{#each $canvasList as canvas}
 			{#if canvas}
-				<ModelFile title={canvas.name} fileClicked={() => fileClicked(canvas)} selected={selectedFile && canvas.id == selectedFile.id} fileThumb={canvas.content}/>
+				<ModelFile 
+					title={canvas.name} 
+					fileClicked={() => fileClicked(canvas)} 
+					selected={selectedFile && canvas.id == selectedFile.id} 
+					fileThumb={canvas.content}
+					changeFileName={changeFileName}/>
 			{/if}
 		{/each}
 	</div>
@@ -90,5 +108,10 @@
 		justify-content: flex-end;
 		margin-top: 10px;
 		margin-bottom: 10px;
+	}
+
+	.settingsContain {
+		margin-left: 10px;
+		margin-right: auto;
 	}
 </style>

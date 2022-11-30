@@ -16,6 +16,9 @@ export const colorHistoryLimit = 6; //limit to history
 //last selected tab in palette
 export const selectedColorTab = writable('picker')
 
+//simple mode in UI
+export const simpleMode = writable(false)
+
 //state management for canvas memory
 function createCanvasList(){
 	const { subscribe, set, update } = writable({})

@@ -5,7 +5,7 @@
   import { faHome, faEraser, faPen, 
     faCircle, faSquare, faLayerGroup, 
     faEye, faPlus, faArrowsUpDownLeftRight, 
-    faFlag, faUndo, faRedo, faMagnifyingGlassPlus, faMagnifyingGlassMinus} from '@fortawesome/free-solid-svg-icons'
+    faFlag, faUndo, faRedo, faMagnifyingGlassPlus, faMagnifyingGlassMinus, faPaintbrush} from '@fortawesome/free-solid-svg-icons'
 
   import BlockSlider from './lib/BlockSlider.svelte';
   import BlockButton from './lib/BlockButton.svelte';
@@ -16,7 +16,7 @@
 
   import Model from './lib/model/Model.svelte'
 
-  import { modelOpen, modelState, canvasList, selectedColor } from './stores/stores.js'
+  import { modelOpen, modelState, canvasList, selectedColor, simpleMode } from './stores/stores.js'
 
   import { FastPaintCore } from './core/core.js'
 
@@ -250,86 +250,92 @@
       
   </div>
   
-
-  <div id="right-pane">
-
-    <div class="block-group">
+    {#if $simpleMode}
+    <div id="compact-right-pane">
       <BlockButton icon={faHome} clickAction={openFiles}/>
-
-      <BlockTextentry value={canvasName}/>
-    </div>
-    
-
-    <div class="block-group">
-    <BlockRadio 
-      options={[
-        {
-          icon: faEraser,
-          key: FastPaintCore.brushModeErase
-        },
-        {
-          icon: faPen,
-          key: FastPaintCore.brushModeDraw
-        },
-        {
-          icon: faArrowsUpDownLeftRight,
-          key: FastPaintCore.brushModeMove
-        }
-      ]} onChange={changeToolType} choice={mode}/>
-    </div>
-
-    <div class="block-group">
-    <BlockRadio
-      options={[
-        {
-          icon: faCircle,
-          key: 0
-        },
-        {
-          icon: faSquare,
-          key: 1
-        }
-      ]} onChange={changeToolShape} choice={shape}/>
-    </div>
-
-    <div class="block-group">
-      <BlockSlider min={0} max={100} value={size} onChange={changeToolSize}/>
-      
+      <BlockButton icon={faPaintbrush} />
+      <BlockButton icon={faLayerGroup} />
       <BlockColor clickAction={pickColor}/>
+      <BlockButton icon={faUndo} clickAction={undoAction} disabled={undoDisabled}/>
     </div>
-
-    <div class="block-group">
-      <div class="block-1 block">
-          <Fa icon={faFlag} size="lg"/>
+    {:else}
+    <div id="right-pane">
+      <div class="block-group">
+        <BlockButton icon={faHome} clickAction={openFiles}/>
+        <BlockTextentry value={canvasName}/>
       </div>
 
-      <BlockSlider min={0} max={255} value={alpha} onChange={changeToolAlpha}/>
-    </div>
+      <div class="block-group">
+      <BlockRadio 
+        options={[
+          {
+            icon: faEraser,
+            key: FastPaintCore.brushModeErase
+          },
+          {
+            icon: faPen,
+            key: FastPaintCore.brushModeDraw
+          },
+          {
+            icon: faArrowsUpDownLeftRight,
+            key: FastPaintCore.brushModeMove
+          }
+        ]} onChange={changeToolType} choice={mode}/>
+      </div>
 
-    <div class="block-group">
-      <BlockButton icon={faUndo} clickAction={undoAction} disabled={undoDisabled}/>
-      <BlockButton icon={faRedo} clickAction={redoAction} disabled={redoDisabled}/> 
+      <div class="block-group">
+      <BlockRadio
+        options={[
+          {
+            icon: faCircle,
+            key: 0
+          },
+          {
+            icon: faSquare,
+            key: 1
+          }
+        ]} onChange={changeToolShape} choice={shape}/>
+      </div>
 
-      <BlockButton icon={faMagnifyingGlassPlus} clickAction={zoomInAction}/>
-      <BlockButton icon={faMagnifyingGlassMinus} clickAction={zoomOutAction}/>
-    </div>
+      <div class="block-group">
+        <BlockSlider min={0} max={100} value={size} onChange={changeToolSize}/>
+        
+        <BlockColor clickAction={pickColor}/>
+      </div>
 
-    <BlockLayers
-      addLayerAction={addLayer}
-      selectLayerAction={selectLayer}
-      hideLayerAction={hideLayer}
-      layerList={layerList}
-      changeLayerNameAction={changeLayerName}
-      deleteLayerAction={deleteLayer}
-      swapLayerAction={swapLayer}
-      bind:selectedLayer={selectedLayer}
-    />
+      <div class="block-group">
+        <div class="block-1 block">
+            <Fa icon={faFlag} size="lg"/>
+        </div>
 
-    <div class="block-group">
-      <canvas id="guide1" class="block-guide"></canvas>
-    </div>
+        <BlockSlider min={0} max={255} value={alpha} onChange={changeToolAlpha}/>
+      </div>
 
-  </div>
+      <div class="block-group">
+        <BlockButton icon={faUndo} clickAction={undoAction} disabled={undoDisabled}/>
+        <BlockButton icon={faRedo} clickAction={redoAction} disabled={redoDisabled}/> 
+
+        <BlockButton icon={faMagnifyingGlassPlus} clickAction={zoomInAction}/>
+        <BlockButton icon={faMagnifyingGlassMinus} clickAction={zoomOutAction}/>
+      </div>
+
+      <BlockLayers
+        addLayerAction={addLayer}
+        selectLayerAction={selectLayer}
+        hideLayerAction={hideLayer}
+        layerList={layerList}
+        changeLayerNameAction={changeLayerName}
+        deleteLayerAction={deleteLayer}
+        swapLayerAction={swapLayer}
+        bind:selectedLayer={selectedLayer}
+      />
+
+      <div class="block-group">
+        <canvas id="guide1" class="block-guide"></canvas>
+      </div>
+      </div>
+    {/if}
+    
 </main>
 
 <style global>
@@ -362,6 +368,20 @@
     overflow: hidden;
 
     border-left: 1px solid black;
+  }
+
+  #compact-right-pane {
+    width: 54px;
+    height: 100%;
+    background-color: white;
+    overflow: hidden;
+    border-left: 1px solid black;
+
+    display:  flex;
+    flex-direction: column;
+    align-content: flex-start;
+    row-gap: 0.5px;
+    margin-top: 1px;
   }
 
   #right-pane > * {

@@ -1172,7 +1172,7 @@ export class FastPaintCore {
 bug tracker:
 enh list:
 rename file from filesModel
-color picker 2
 control canvas position from guide
 better hex validation in color input
+deleted file doesn't drive reselect
 */

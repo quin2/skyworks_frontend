@@ -4,8 +4,8 @@
 	import { modelOpen, modelState } from '../../stores/stores.js'
 
 	export let makeNewCanvas;
-	let width;
-	let height;
+	let width = 200;
+	let height = 200;
 
 	$: createOK = width > 0 && height > 0;
 

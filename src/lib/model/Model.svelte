@@ -3,6 +3,9 @@
 	import FilesModel from './FilesModel.svelte'
 	import SettingsModel from './SettingsModel.svelte'
 	import ColorsModel from './ColorsModel.svelte'
+	import PrefModel from './PrefModel.svelte'
+	import BrushModel from './BrushModel.svelte'
+	import LayersModel from './LayersModel.svelte'
 
 	export let makeNewCanvas;
 	export let loadOldCanvas;
@@ -23,6 +26,15 @@
 		{/if}
 		{#if _modelState == 'cColor'}
 			<ColorsModel setColor={setColor}/>
+		{/if}
+		{#if _modelState == 'cPref'}
+			<PrefModel />
+		{/if}
+		{#if _modelState == 'cBrush'}
+			<BrushModel />
+		{/if}
+		{#if _modelState == 'cLayers'}
+			<LayersModel />
 		{/if}
 	{/if}
 </div>

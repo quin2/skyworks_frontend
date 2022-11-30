@@ -7,9 +7,26 @@
 	export let fileClicked;
 	export let fileThumb;
 	export let isAddNew = false;
+	export let changeFileName = () => {}
+
+	let tempTitle = title
+	let fileEditing = false
+
+	function fileDoubleClicked(){
+		fileEditing = true;
+	}
+
+	function finishFileEdit(){
+		title = tempTitle;
+		fileEditing = false;
+		changeFileName()
+	}
 </script>
 
-<div class="singleFile {selected ? 'selectedFile' : ''}" on:click={fileClicked}>
+<div 
+	class="singleFile {selected ? 'selectedFile' : ''}" 
+	on:click={fileClicked}
+	on:dblclick={fileDoubleClicked}>
 		{#if isAddNew}
 			<div class="fileImage">
 				<Fa icon={faPlus} size="lg"/>
@@ -17,7 +34,12 @@
 		{:else}
 			<div class="fileImage" style="background-image: url({fileThumb})"></div>
 		{/if}
-		<div class="fileTitle">{title}</div>
+
+		{#if fileEditing && !isAddNew}
+			<input type="text" class="block-text block-textentry layerNameEdit" bind:value={tempTitle} on:blur={() => finishFileEdit()} autofocus>
+		{:else}
+			<div class="fileTitle">{title}</div>
+		{/if}
 </div>
 
 <style>
