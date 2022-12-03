@@ -103,6 +103,8 @@ export class FastPaintCore {
 
         this.lastPosX = -1;
         this.lastPosY = -1;
+        this.lastPosXUt = -1;
+        this.lastPosYUt = -1;
 
         this.moveMode = false;
 
@@ -586,6 +588,9 @@ export class FastPaintCore {
         let x = (event.clientX - this.rect.left) / this.scaleConstant;
         let y = (event.clientY - this.rect.top) / this.scaleConstant;
 
+        this.lastPosXUt = event.clientX;
+        this.lastPosYUt = event.clientY;
+
         if (event.touches) {
             x = (event.touches[0].clientX - this.rect.left) / this.scaleConstant;
             y = (event.touches[0].clientY - this.rect.top) / this.scaleConstant;
@@ -716,6 +721,9 @@ export class FastPaintCore {
 
         this.updateBoundingRect()
         this.updateGuide()
+
+        //retransform
+        this.recalcOverlay()
     }
 
     zoomOut() {
@@ -727,6 +735,16 @@ export class FastPaintCore {
 
         this.updateBoundingRect();
         this.updateGuide()
+
+        this.recalcOverlay()
+    }
+
+    recalcOverlay(){
+    	let x = (this.lastPosXUt - this.rect.left) / this.scaleConstant;
+        let y = (this.lastPosYUt - this.rect.top) / this.scaleConstant;
+
+        this.instance.exports.setOverlay(x, y, 1);
+        this.updateCanvas(true);
     }
 
     undoPaint(){
@@ -1170,9 +1188,6 @@ export class FastPaintCore {
 
 /*
 bug tracker:
-enh list:
-rename file from filesModel
 control canvas position from guide
 better hex validation in color input
-deleted file doesn't drive reselect
 */

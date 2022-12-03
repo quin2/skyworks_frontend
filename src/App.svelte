@@ -62,7 +62,7 @@
       canvasList.new(saveObject)
     }
     else{
-      //saveObject.id = openCanvasHash;
+      saveObject.id = openCanvasHash;
       canvasList.update(openCanvasHash, saveObject)
     }
     

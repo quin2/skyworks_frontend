@@ -30,6 +30,7 @@
 
 	function removeSelectedFile(){
 		canvasList.delete(selectedFile.id)
+		fileSelected = false
 	}
 
 	function editCanvas(){
@@ -38,8 +39,9 @@
 		modelOpen.set(false);
 	}
 
-	function changeFileName(){
-
+	function changeFileName(title, canvas){
+		canvas.name = title
+		canvasList.update(canvas.id, canvas)
 	}
 
 	function openPref(){
@@ -68,7 +70,7 @@
 					fileClicked={() => fileClicked(canvas)} 
 					selected={selectedFile && canvas.id == selectedFile.id} 
 					fileThumb={canvas.content}
-					changeFileName={changeFileName}/>
+					changeFileName={(title) => changeFileName(title, canvas)}/>
 			{/if}
 		{/each}
 	</div>

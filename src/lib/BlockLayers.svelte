@@ -157,6 +157,7 @@
 
   .lowerContain {
   	height:  200px;
+    min-height: 100px;
   	overflow: auto;
   }
 

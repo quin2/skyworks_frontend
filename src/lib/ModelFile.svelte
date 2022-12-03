@@ -19,7 +19,7 @@
 	function finishFileEdit(){
 		title = tempTitle;
 		fileEditing = false;
-		changeFileName()
+		changeFileName(title)
 	}
 </script>
 

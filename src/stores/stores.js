@@ -76,15 +76,11 @@ function createCanvasList(){
 				let request = canvasList.delete(parseInt(key)); 
 				request.onsuccess = function(event){
 					update((n) => {
-
-						console.log(n)
-						console.log(key)
-
+						
 						const idx = n.findIndex((elem) => {
 							return elem.id && elem.id == key
 						})
 
-						console.log(idx)
 						if(idx !== -1){
 							delete n[idx]
 						}
@@ -112,7 +108,17 @@ function createCanvasList(){
 
 							//make pointed insert at value
 							update((n) => {
-								const idx = n.findIndex(elem => elem.id == key)
+								if(n == undefined){
+									return
+								}
+
+								const idx = n.findIndex((elem) => {
+									if(typeof n == "undefined"){
+										return false;
+									}
+
+									return elem.id && elem.id == key
+								})
 								const old = [...n]
 								if(idx !== -1){
 									old[idx] = value
