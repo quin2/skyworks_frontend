@@ -74,8 +74,8 @@ export class FastPaintCore {
         window.addEventListener('resize', this.handleResize.bind(this));
 
         //guide specifc code lives here
-        this.guide = document.getElementById(guide)
-        this.guideCtx = this.guide.getContext('2d')
+        this.guide = document.getElementById(guide);
+        this.guideCtx = this.guide.getContext('2d');
 
         //attach listeners to guide
         /*
@@ -150,8 +150,8 @@ export class FastPaintCore {
         this.updateCanvasPosition()
         this.updateBoundingRect()
 
-        let guideWidth = ((this.width / this.height) * this.guide.offsetWidth)
-        this.guide.style.height = guideWidth + "px"
+        this.guideWidth = ((this.width / this.height) * this.guide.offsetWidth)
+        this.guide.style.height = this.guideWidth + "px"
         this.guide.width = this.width
         this.guide.height = this.height
 
@@ -176,7 +176,7 @@ export class FastPaintCore {
     }
 
     updateCanvasPosition() {
-        this.setPosition(this.canvasParent, (this.windowShim.offsetWidth / 2) - (this.canvas.offsetWidth / 2), (this.windowShim.offsetHeight / 2) - (this.canvas.offsetHeight / 2))
+        this.setPosition(this.canvasParent, (this.windowShim.offsetWidth / 2) - (this.canvas.offsetWidth / 2), (this.windowShim.offsetHeight / 2) - (this.canvas.offsetHeight / 2));
     }
 
     guideMouseDown(event) {
@@ -191,6 +191,7 @@ export class FastPaintCore {
 
     guideMouseMode(event) {
         if (this.guideClicked) {
+        	
             this.canvasMoveDriver(event, this.guide, true)
         }
     }
@@ -533,9 +534,10 @@ export class FastPaintCore {
             this.currentActionPath.push([x, y]);
 
             this.layers[this.currentLayer].strokes++;
-        } else {
-            this.posX = e.offsetX;
-            this.posY = e.offsetY;
+        } 
+        else { //will move canvas
+            this.posX = e.offsetX * this.scaleConstant;
+            this.posY = e.offsetY * this.scaleConstant;
         }
     }
 
@@ -647,13 +649,23 @@ export class FastPaintCore {
     */
 
     canvasMoveDriver(event, target, invertAxis) {
-        let rect = target.getBoundingClientRect()
+        let rect = target.getBoundingClientRect();
         let offsetX = event.clientX - rect.left;
         let offsetY = event.clientY - rect.top;
 
-        if (invertAxis) {
-            this.setPosition(this.canvasParent, (this.posX - offsetX), (this.posY - offsetY))
-        } else {
+        if (invertAxis) { //change in position comes from guide
+        	offsetX *= (this.width / this.guideWidth) * this.scaleConstant
+      		offsetY *= (this.width / this.guideWidth) * this.scaleConstant
+
+      		offsetX -= ((this.width - this.rect.width) / 2)
+      		offsetY -= ((this.height - this.rect.height) / 2)
+
+            this.setPosition(this.canvasParent, (this.posX - offsetX) * (this.width / rect.width), (this.posY - offsetY) * (this.height / rect.height))
+        } 
+        else { // change in position comes from screen
+        	offsetX -= ((this.width - this.rect.width) / 2) //diff between new + old
+      		offsetY -= ((this.height - this.rect.height) / 2)
+
             this.setPosition(this.canvasParent, (offsetX - this.posX), (offsetY - this.posY))
         }
 
@@ -1190,4 +1202,8 @@ export class FastPaintCore {
 bug tracker:
 control canvas position from guide
 better hex validation in color input
+lower key:
+logging
+clean up appsvelte
+clear cursor when moving
 */
