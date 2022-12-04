@@ -1206,4 +1206,5 @@ lower key:
 logging
 clean up appsvelte
 clear cursor when moving
+white space glitch on top
 */
