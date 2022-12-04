@@ -168,6 +168,7 @@ export class FastPaintCore {
     	this.freeState(width, height, drawConfigObject)
     	this.addLayer()
     	this.fillLayer(255, 255, 255, 255);
+    	this.updateCanvas(false);
     }
 
     handleResize() {
@@ -1207,4 +1208,5 @@ logging
 clean up appsvelte
 clear cursor when moving
 white space glitch on top
+new canvases don't clear
 */
